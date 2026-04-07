@@ -12,7 +12,7 @@ public class ConnectionUIController : MonoBehaviour
     [SerializeField] private TMP_InputField portInputField;
     [SerializeField] private TMP_InputField userNameInputField;
     [SerializeField] private Button connectButton;
-    [SerializeField] private TMP_Text statusText;
+    //[SerializeField] private TMP_Text statusText;
 
     [Header("Scene Names")]
     [SerializeField] private string chatSceneName = "ChatScene";
@@ -30,7 +30,7 @@ public class ConnectionUIController : MonoBehaviour
 
     private void InitializeUI()
     {
-        statusText.text = string.Empty;
+        //statusText.text = string.Empty;
 
         if (ipInputField != null && string.IsNullOrWhiteSpace(ipInputField.text))
         {
@@ -128,10 +128,12 @@ public class ConnectionUIController : MonoBehaviour
 
     private void SetStatus(string message)
     {
+        /*
         if (statusText != null)
         {
             statusText.text = message;
         }
+        */
 
         Debug.LogWarning(message);
     }

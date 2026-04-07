@@ -83,6 +83,6 @@ public class ChatMessageView : MonoBehaviour, IPointerClickHandler
             previewText = previewText.Substring(0, 30) + "...";
         }
 
-       replyPreviewText.text = $"↪ Reply to {repliedMessage.SenderName}\n{previewText}";
+       replyPreviewText.text = $"↪ {repliedMessage.SenderName}: {previewText}";
     }
 }

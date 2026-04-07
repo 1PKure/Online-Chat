@@ -50,6 +50,12 @@ public class ChatUIController : MonoBehaviour
             sendButton.onClick.AddListener(OnSendButtonPressed);
         }
 
+        if (messageInputField != null)
+        {
+            messageInputField.onSubmit.AddListener(HandleInputSubmit);
+        }
+
+
         if (cancelReplyButton != null)
         {
             cancelReplyButton.onClick.AddListener(ClearReplySelection);
@@ -62,6 +68,34 @@ public class ChatUIController : MonoBehaviour
         chatNetworkManager.OnConnected += HandleConnected;
         chatNetworkManager.OnDisconnected += HandleDisconnected;
     }
+    private void Update()
+    {
+        if (messageInputField == null)
+        {
+            return;
+        }
+
+        if (!messageInputField.isFocused)
+        {
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+        {
+            OnSendButtonPressed();
+        }
+    }
+
+    private void HandleInputSubmit(string submittedText)
+    {
+        if (string.IsNullOrWhiteSpace(submittedText))
+        {
+            return;
+        }
+
+        OnSendButtonPressed();
+    }
+
 
     private void OnDestroy()
     {
@@ -73,6 +107,11 @@ public class ChatUIController : MonoBehaviour
         if (cancelReplyButton != null)
         {
             cancelReplyButton.onClick.RemoveListener(ClearReplySelection);
+        }
+        
+        if (messageInputField != null)
+        {
+            messageInputField.onSubmit.RemoveListener(HandleInputSubmit);
         }
 
         if (chatNetworkManager != null)
