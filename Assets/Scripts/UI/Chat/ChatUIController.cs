@@ -6,15 +6,21 @@ public class ChatUIController : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private TMP_Text sessionInfoText;
-    [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_InputField messageInputField;
     [SerializeField] private Button sendButton;
     [SerializeField] private Transform messagesContainer;
     [SerializeField] private ScrollRect scrollRect;
     [SerializeField] private ChatMessageView messageViewPrefab;
 
+    [Header("Reply UI")]
+    [SerializeField] private GameObject replyPanel;
+    [SerializeField] private TMP_Text replyPreviewText;
+    [SerializeField] private Button cancelReplyButton;
+
     [Header("Managers")]
     [SerializeField] private ChatNetworkManager chatNetworkManager;
+
+    private ChatMessageData selectedReplyTarget;
 
     private void Start()
     {
@@ -39,7 +45,17 @@ public class ChatUIController : MonoBehaviour
                 $"IP: {config.IPAddress} | Port: {config.Port} | User: {config.UserName}";
         }
 
-        sendButton.onClick.AddListener(OnSendButtonPressed);
+        if (sendButton != null)
+        {
+            sendButton.onClick.AddListener(OnSendButtonPressed);
+        }
+
+        if (cancelReplyButton != null)
+        {
+            cancelReplyButton.onClick.AddListener(ClearReplySelection);
+        }
+
+        SetReplyPanelVisible(false);
 
         chatNetworkManager.OnMessageReceived += HandleMessageReceived;
         chatNetworkManager.OnStatusChanged += HandleStatusChanged;
@@ -52,6 +68,11 @@ public class ChatUIController : MonoBehaviour
         if (sendButton != null)
         {
             sendButton.onClick.RemoveListener(OnSendButtonPressed);
+        }
+
+        if (cancelReplyButton != null)
+        {
+            cancelReplyButton.onClick.RemoveListener(ClearReplySelection);
         }
 
         if (chatNetworkManager != null)
@@ -78,9 +99,16 @@ public class ChatUIController : MonoBehaviour
             return;
         }
 
-        chatNetworkManager.SendChatMessage(text);
+        string replyToMessageId = selectedReplyTarget != null
+            ? selectedReplyTarget.MessageId
+            : string.Empty;
+
+        chatNetworkManager.SendChatMessage(text, replyToMessageId);
+
         messageInputField.text = string.Empty;
         messageInputField.ActivateInputField();
+
+        ClearReplySelection();
     }
 
     private void HandleMessageReceived(ChatMessageData messageData)
@@ -93,12 +121,54 @@ public class ChatUIController : MonoBehaviour
 
         ChatMessageView messageView = Instantiate(messageViewPrefab, messagesContainer);
         messageView.Setup(messageData);
+        messageView.OnMessageSelected += HandleMessageSelected;
 
         Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)messagesContainer);
 
         if (scrollRect != null)
         {
             scrollRect.verticalNormalizedPosition = 0f;
+        }
+    }
+
+    private void HandleMessageSelected(ChatMessageData messageData)
+    {
+        selectedReplyTarget = messageData;
+        RefreshReplyPanel();
+    }
+
+    private void RefreshReplyPanel()
+    {
+        bool hasReplyTarget = selectedReplyTarget != null;
+        SetReplyPanelVisible(hasReplyTarget);
+
+        if (!hasReplyTarget || replyPreviewText == null)
+        {
+            return;
+        }
+
+        string previewText = selectedReplyTarget.Text;
+
+        if (previewText.Length > 40)
+        {
+            previewText = previewText.Substring(0, 40) + "...";
+        }
+
+        replyPreviewText.text = $"Replying to {selectedReplyTarget.SenderName}: {previewText}";
+    }
+
+    private void ClearReplySelection()
+    {
+        selectedReplyTarget = null;
+        SetReplyPanelVisible(false);
+    }
+
+    private void SetReplyPanelVisible(bool isVisible)
+    {
+        if (replyPanel != null)
+        {
+            replyPanel.SetActive(isVisible);
         }
     }
 
@@ -119,11 +189,6 @@ public class ChatUIController : MonoBehaviour
 
     private void SetStatus(string message)
     {
-        if (statusText != null)
-        {
-            statusText.text = message;
-        }
-
         Debug.Log($"[CHAT UI] {message}");
     }
 }

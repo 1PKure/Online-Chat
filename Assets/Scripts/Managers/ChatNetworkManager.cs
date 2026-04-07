@@ -42,6 +42,11 @@ public class ChatNetworkManager : MonoBehaviour
 
     private async Task InitializeNetworkAsync()
     {
+        if (MessageRepository.Instance != null)
+        {
+            MessageRepository.Instance.ClearMessages();
+        }
+        
         if (SessionData.Instance == null || !SessionData.Instance.HasConfig())
         {
             SetStatus("Missing session config.");
@@ -85,7 +90,7 @@ public class ChatNetworkManager : MonoBehaviour
         OnConnected?.Invoke();
     }
 
-    public void SendChatMessage(string text)
+    public void SendChatMessage(string text, string replyToMessageId = "")
     {
         if (!IsConnected)
         {
@@ -113,7 +118,7 @@ public class ChatNetworkManager : MonoBehaviour
             SenderId = localUserId,
             SenderName = LocalUserName,
             Text = text,
-            ReplyToMessageId = string.Empty,
+            ReplyToMessageId = replyToMessageId ?? string.Empty,
             Timestamp = DateTime.Now.ToString("HH:mm")
         };
 
@@ -135,6 +140,11 @@ public class ChatNetworkManager : MonoBehaviour
         {
             SetStatus("Failed to parse incoming message.");
             return;
+        }
+
+        if (MessageRepository.Instance != null)
+        {
+            MessageRepository.Instance.AddMessage(messageData);
         }
 
         if (MainThreadDispatcher.Instance != null)
