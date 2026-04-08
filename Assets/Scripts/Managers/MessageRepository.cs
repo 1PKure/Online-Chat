@@ -26,16 +26,20 @@ public class MessageRepository : MonoBehaviour
     {
         if (messageData == null || string.IsNullOrWhiteSpace(messageData.MessageId))
         {
+            Debug.LogWarning("[MessageRepository] Invalid message. Cannot add.");
             return;
         }
 
         if (messagesById.ContainsKey(messageData.MessageId))
         {
+            Debug.LogWarning($"[MessageRepository] Duplicate message id: {messageData.MessageId}");
             return;
         }
 
         messages.Add(messageData);
         messagesById.Add(messageData.MessageId, messageData);
+
+        Debug.Log($"[MessageRepository] Added message: {messageData.MessageId} | {messageData.SenderName} | {messageData.Text}");
     }
 
     public ChatMessageData GetMessageById(string messageId)

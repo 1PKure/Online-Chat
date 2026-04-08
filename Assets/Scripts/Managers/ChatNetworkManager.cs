@@ -46,7 +46,7 @@ public class ChatNetworkManager : MonoBehaviour
         {
             MessageRepository.Instance.ClearMessages();
         }
-        
+
         if (SessionData.Instance == null || !SessionData.Instance.HasConfig())
         {
             SetStatus("Missing session config.");
@@ -115,10 +115,10 @@ public class ChatNetworkManager : MonoBehaviour
         ChatMessageData messageData = new ChatMessageData
         {
             MessageId = Guid.NewGuid().ToString(),
-            SenderId = localUserId,
-            SenderName = LocalUserName,
+            SenderClientId = SessionData.Instance.ClientId,
+            SenderName = SessionData.Instance.CurrentConfig.UserName,
             Text = text,
-            ReplyToMessageId = replyToMessageId ?? string.Empty,
+            ReplyToMessageId = replyToMessageId,
             Timestamp = DateTime.Now.ToString("HH:mm")
         };
 

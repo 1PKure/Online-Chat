@@ -108,7 +108,7 @@ public class ChatUIController : MonoBehaviour
         {
             cancelReplyButton.onClick.RemoveListener(ClearReplySelection);
         }
-        
+
         if (messageInputField != null)
         {
             messageInputField.onSubmit.RemoveListener(HandleInputSubmit);
@@ -157,6 +157,8 @@ public class ChatUIController : MonoBehaviour
             SetStatus("Message UI references are missing.");
             return;
         }
+
+        MessageRepository.Instance?.AddMessage(messageData);
 
         ChatMessageView messageView = Instantiate(messageViewPrefab, messagesContainer);
         messageView.Setup(messageData);

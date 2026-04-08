@@ -4,7 +4,7 @@ using System;
 public class ChatMessageData
 {
     public string MessageId;
-    public string SenderId;
+    public string SenderClientId;
     public string SenderName;
     public string Text;
     public string ReplyToMessageId;

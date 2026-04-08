@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class SessionData : MonoBehaviour
@@ -5,6 +6,7 @@ public class SessionData : MonoBehaviour
     public static SessionData Instance { get; private set; }
 
     public ConnectionConfig CurrentConfig { get; private set; }
+    public string ClientId { get; private set; }
 
     private void Awake()
     {
@@ -21,6 +23,11 @@ public class SessionData : MonoBehaviour
     public void SetConfig(ConnectionConfig config)
     {
         CurrentConfig = config;
+
+        if (string.IsNullOrWhiteSpace(ClientId))
+        {
+            ClientId = Guid.NewGuid().ToString();
+        }
     }
 
     public bool HasConfig()
@@ -31,5 +38,6 @@ public class SessionData : MonoBehaviour
     public void ClearConfig()
     {
         CurrentConfig = null;
+        ClientId = null;
     }
 }
