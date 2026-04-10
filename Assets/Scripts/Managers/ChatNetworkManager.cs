@@ -6,17 +6,18 @@ public class ChatNetworkManager : MonoBehaviour
 {
     public static ChatNetworkManager Instance { get; private set; }
 
-    private TcpChatServer server;
-    private TcpChatClient client;
+    private IChatTransport serverTransport;
+    private IChatTransport clientTransport;
 
     private string localUserId;
+    private bool hasRaisedConnectedEvent;
 
     public event Action<ChatMessageData> OnMessageReceived;
     public event Action<string> OnStatusChanged;
     public event Action OnConnected;
     public event Action OnDisconnected;
 
-    public bool IsConnected => client != null && client.IsConnected;
+    public bool IsConnected => clientTransport != null && clientTransport.IsRunning;
 
     public string LocalUserName =>
         SessionData.Instance != null && SessionData.Instance.HasConfig()
@@ -54,40 +55,67 @@ public class ChatNetworkManager : MonoBehaviour
         }
 
         ConnectionConfig config = SessionData.Instance.CurrentConfig;
-
-        if (config.TransportType != TransportType.TCP)
-        {
-            SetStatus("Only TCP is implemented in this stage.");
-            return;
-        }
-
         localUserId = Guid.NewGuid().ToString();
-
-        client = new TcpChatClient();
-        client.OnRawMessageReceived += HandleRawMessageReceived;
-        client.OnClientLog += HandleClientLog;
-        client.OnDisconnected += HandleClientDisconnected;
+        hasRaisedConnectedEvent = false;
 
         if (config.Mode == ConnectionMode.Host)
         {
-            server = new TcpChatServer();
-            server.OnServerLog += HandleServerLog;
-            server.StartServer(config.Port);
-
-            await Task.Delay(200);
+            await InitializeHostAsync(config);
         }
-
-        string connectionAddress = config.Mode == ConnectionMode.Host ? "127.0.0.1" : config.IPAddress;
-        bool connected = await client.ConnectAsync(connectionAddress, config.Port);
-
-        if (!connected)
+        else
         {
-            SetStatus("Failed to connect.");
+            await InitializeClientAsync(config);
+        }
+    }
+
+    private async Task InitializeHostAsync(ConnectionConfig config)
+    {
+        serverTransport = ChatTransportFactory.Create(config.TransportType);
+
+        if (serverTransport == null)
+        {
+            SetStatus("Failed to create server transport.");
             return;
         }
 
-        SetStatus("Connected successfully.");
-        OnConnected?.Invoke();
+        serverTransport.OnError += HandleServerTransportError;
+        serverTransport.OnDisconnected += HandleServerTransportDisconnected;
+
+        serverTransport.StartAsServer(config.IPAddress, config.Port);
+
+        await Task.Delay(200);
+
+        clientTransport = ChatTransportFactory.Create(config.TransportType);
+
+        if (clientTransport == null)
+        {
+            SetStatus("Failed to create local client transport.");
+            return;
+        }
+
+        BindClientTransportEvents(clientTransport);
+
+        string connectionAddress = string.IsNullOrWhiteSpace(config.IPAddress)
+            ? "127.0.0.1"
+            : config.IPAddress;
+
+        clientTransport.StartAsClient(connectionAddress, config.Port);
+    }
+
+    private async Task InitializeClientAsync(ConnectionConfig config)
+    {
+        await Task.Yield();
+
+        clientTransport = ChatTransportFactory.Create(config.TransportType);
+
+        if (clientTransport == null)
+        {
+            SetStatus("Failed to create client transport.");
+            return;
+        }
+
+        BindClientTransportEvents(clientTransport);
+        clientTransport.StartAsClient(config.IPAddress, config.Port);
     }
 
     public void SendChatMessage(string text, string replyToMessageId = "")
@@ -123,13 +151,53 @@ public class ChatNetworkManager : MonoBehaviour
         };
 
         string json = JsonPacketSerializer.Serialize(messageData);
-        client.Send(json);
+        clientTransport.Send(json);
     }
 
     public void Shutdown()
     {
-        client?.Disconnect();
-        server?.StopServer();
+        UnbindAndStopClientTransport();
+        UnbindAndStopServerTransport();
+
+        hasRaisedConnectedEvent = false;
+    }
+
+    private void BindClientTransportEvents(IChatTransport transport)
+    {
+        transport.OnRawMessageReceived += HandleRawMessageReceived;
+        transport.OnConnected += HandleClientTransportConnected;
+        transport.OnDisconnected += HandleClientTransportDisconnected;
+        transport.OnError += HandleClientTransportError;
+    }
+
+    private void UnbindAndStopClientTransport()
+    {
+        if (clientTransport == null)
+        {
+            return;
+        }
+
+        clientTransport.OnRawMessageReceived -= HandleRawMessageReceived;
+        clientTransport.OnConnected -= HandleClientTransportConnected;
+        clientTransport.OnDisconnected -= HandleClientTransportDisconnected;
+        clientTransport.OnError -= HandleClientTransportError;
+
+        clientTransport.Stop();
+        clientTransport = null;
+    }
+
+    private void UnbindAndStopServerTransport()
+    {
+        if (serverTransport == null)
+        {
+            return;
+        }
+
+        serverTransport.OnError -= HandleServerTransportError;
+        serverTransport.OnDisconnected -= HandleServerTransportDisconnected;
+
+        serverTransport.Stop();
+        serverTransport = null;
     }
 
     private void HandleRawMessageReceived(string rawMessage)
@@ -154,22 +222,42 @@ public class ChatNetworkManager : MonoBehaviour
                 OnMessageReceived?.Invoke(messageData);
             });
         }
+        else
+        {
+            OnMessageReceived?.Invoke(messageData);
+        }
     }
 
-    private void HandleClientLog(string message)
+    private void HandleClientTransportConnected()
+    {
+        SetStatus("Connected successfully.");
+
+        if (!hasRaisedConnectedEvent)
+        {
+            hasRaisedConnectedEvent = true;
+            OnConnected?.Invoke();
+        }
+    }
+
+    private void HandleClientTransportDisconnected()
+    {
+        SetStatus("Disconnected from server.");
+        OnDisconnected?.Invoke();
+    }
+
+    private void HandleClientTransportError(string message)
     {
         SetStatus(message);
     }
 
-    private void HandleServerLog(string message)
+    private void HandleServerTransportDisconnected()
     {
-        Debug.Log($"[NETWORK MANAGER] {message}");
+        Debug.Log("[CHAT NETWORK] Server transport disconnected.");
     }
 
-    private void HandleClientDisconnected()
+    private void HandleServerTransportError(string message)
     {
-        SetStatus("Disconnected from server.");
-        OnDisconnected?.Invoke();
+        Debug.LogWarning($"[CHAT NETWORK][SERVER] {message}");
     }
 
     private void SetStatus(string message)
@@ -182,6 +270,10 @@ public class ChatNetworkManager : MonoBehaviour
             {
                 OnStatusChanged?.Invoke(message);
             });
+        }
+        else
+        {
+            OnStatusChanged?.Invoke(message);
         }
     }
 

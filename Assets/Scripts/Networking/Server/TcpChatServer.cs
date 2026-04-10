@@ -207,4 +207,15 @@ public class TcpChatServer
             try { TcpClient?.Close(); } catch { }
         }
     }
+
+    public void SendFromServer(string rawMessage)
+    {
+        if (!IsRunning || string.IsNullOrWhiteSpace(rawMessage))
+        {
+            return;
+        }
+
+        Log($"Server sending: {rawMessage}");
+        Broadcast(rawMessage);
+    }
 }

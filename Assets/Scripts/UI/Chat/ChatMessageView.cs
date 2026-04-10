@@ -18,10 +18,24 @@ public class ChatMessageView : MonoBehaviour, IPointerClickHandler
     [SerializeField] private RectTransform bubbleRoot;
     [SerializeField] private HorizontalLayoutGroup rowLayout;
     [SerializeField] private Image bubbleBackground;
+    [SerializeField] private LayoutElement leftSpacer;
+    [SerializeField] private LayoutElement rightSpacer;
 
     [Header("Colors")]
     [SerializeField] private Color myMessageColor = new Color(0.20f, 0.45f, 0.20f, 1f);
     [SerializeField] private Color otherMessageColor = new Color(0.18f, 0.18f, 0.18f, 1f);
+    [SerializeField] private Color myHeaderColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+    [SerializeField] private Color otherHeaderColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+
+    [SerializeField] private Color myBodyColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Color otherBodyColor = new Color(1f, 1f, 1f, 1f);
+
+    [SerializeField] private Color myReplyTextColor = new Color(0f, 0f, 0f, 1f);
+    [SerializeField] private Color otherReplyTextColor = new Color(1f, 1f, 1f, 1f);
+
+    [SerializeField] private Image replyPreviewBackground;
+    [SerializeField] private Color myReplyBackgroundColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+    [SerializeField] private Color otherReplyBackgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f);
 
     private ChatMessageData currentMessageData;
 
@@ -69,19 +83,41 @@ public class ChatMessageView : MonoBehaviour, IPointerClickHandler
     {
         bool isMine = IsMine();
 
-        if (rowLayout != null)
+        if (leftSpacer != null)
         {
-            rowLayout.childAlignment = isMine ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
+            leftSpacer.ignoreLayout = isMine;
+            leftSpacer.flexibleWidth = isMine ? 0f : 1f;
         }
 
-        if (bubbleRoot != null)
+        if (rightSpacer != null)
         {
-            bubbleRoot.pivot = isMine ? new Vector2(1f, 0.5f) : new Vector2(0f, 0.5f);
+            rightSpacer.ignoreLayout = !isMine;
+            rightSpacer.flexibleWidth = isMine ? 1f : 0f;
         }
 
         if (bubbleBackground != null)
         {
             bubbleBackground.color = isMine ? myMessageColor : otherMessageColor;
+        }
+
+        if (headerText != null)
+        {
+            headerText.color = isMine ? myHeaderColor : otherHeaderColor;
+        }
+
+        if (bodyText != null)
+        {
+            bodyText.color = isMine ? myBodyColor : otherBodyColor;
+        }
+
+        if (replyPreviewText != null)
+        {
+            replyPreviewText.color = isMine ? myReplyTextColor : otherReplyTextColor;
+        }
+
+        if (replyPreviewBackground != null)
+        {
+            replyPreviewBackground.color = isMine ? myReplyBackgroundColor : otherReplyBackgroundColor;
         }
     }
 

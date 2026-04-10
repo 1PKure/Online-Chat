@@ -46,10 +46,17 @@ public class MessageRepository : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(messageId))
         {
+            Debug.LogWarning("[MessageRepository] Tried to get message with empty id.");
             return null;
         }
 
         messagesById.TryGetValue(messageId, out ChatMessageData messageData);
+
+        if (messageData == null)
+        {
+            Debug.LogWarning($"[MessageRepository] Message not found for id: {messageId}");
+        }
+
         return messageData;
     }
 

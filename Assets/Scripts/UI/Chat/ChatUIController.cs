@@ -157,9 +157,6 @@ public class ChatUIController : MonoBehaviour
             SetStatus("Message UI references are missing.");
             return;
         }
-
-        MessageRepository.Instance?.AddMessage(messageData);
-
         ChatMessageView messageView = Instantiate(messageViewPrefab, messagesContainer);
         messageView.Setup(messageData);
         messageView.OnMessageSelected += HandleMessageSelected;
