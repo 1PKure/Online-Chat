@@ -1,5 +1,6 @@
 public enum ConnectionMode
 {
     Client,
-    Host
+    Host,
+    DedicatedServer
 }

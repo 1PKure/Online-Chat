@@ -12,26 +12,31 @@ public class ConnectionUIController : MonoBehaviour
     [SerializeField] private TMP_InputField portInputField;
     [SerializeField] private TMP_InputField userNameInputField;
     [SerializeField] private Button connectButton;
-    //[SerializeField] private TMP_Text statusText;
 
     [Header("Scene Names")]
     [SerializeField] private string chatSceneName = "ChatScene";
+    [SerializeField] private string serverSceneName = "ServerScene";
 
     private void Start()
     {
         InitializeUI();
-        connectButton.onClick.AddListener(OnConnectButtonPressed);
+
+        if (connectButton != null)
+        {
+            connectButton.onClick.AddListener(OnConnectButtonPressed);
+        }
     }
 
     private void OnDestroy()
     {
-        connectButton.onClick.RemoveListener(OnConnectButtonPressed);
+        if (connectButton != null)
+        {
+            connectButton.onClick.RemoveListener(OnConnectButtonPressed);
+        }
     }
 
     private void InitializeUI()
     {
-        //statusText.text = string.Empty;
-
         if (ipInputField != null && string.IsNullOrWhiteSpace(ipInputField.text))
         {
             ipInputField.text = "127.0.0.1";
@@ -63,7 +68,22 @@ public class ConnectionUIController : MonoBehaviour
         }
 
         SessionData.Instance.SetConfig(config);
-        SceneManager.LoadScene(chatSceneName);
+
+        switch (config.Mode)
+        {
+            case ConnectionMode.Client:
+            case ConnectionMode.Host:
+                SceneManager.LoadScene(chatSceneName);
+                break;
+
+            case ConnectionMode.DedicatedServer:
+                SceneManager.LoadScene(serverSceneName);
+                break;
+
+            default:
+                SetStatus("Unsupported connection mode.");
+                break;
+        }
     }
 
     private bool TryBuildConnectionConfig(out ConnectionConfig config, out string errorMessage)
@@ -71,15 +91,9 @@ public class ConnectionUIController : MonoBehaviour
         config = null;
         errorMessage = string.Empty;
 
-        string ipAddress = ipInputField.text.Trim();
-        string portText = portInputField.text.Trim();
-        string userName = userNameInputField.text.Trim();
-
-        if (string.IsNullOrWhiteSpace(ipAddress))
-        {
-            errorMessage = "IP address cannot be empty.";
-            return false;
-        }
+        string ipAddress = ipInputField != null ? ipInputField.text.Trim() : string.Empty;
+        string portText = portInputField != null ? portInputField.text.Trim() : string.Empty;
+        string userName = userNameInputField != null ? userNameInputField.text.Trim() : string.Empty;
 
         if (string.IsNullOrWhiteSpace(portText))
         {
@@ -99,20 +113,38 @@ public class ConnectionUIController : MonoBehaviour
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(userName))
-        {
-            errorMessage = "User name cannot be empty.";
-            return false;
-        }
-
-        if (userName.Length > 16)
-        {
-            errorMessage = "User name must be 16 characters or less.";
-            return false;
-        }
-
         ConnectionMode mode = (ConnectionMode)connectionModeDropdown.value;
         TransportType transportType = (TransportType)transportTypeDropdown.value;
+
+        if (mode == ConnectionMode.DedicatedServer)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress))
+            {
+                ipAddress = "0.0.0.0";
+            }
+
+            userName = "DedicatedServer";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress))
+            {
+                errorMessage = "IP address cannot be empty.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                errorMessage = "User name cannot be empty.";
+                return false;
+            }
+
+            if (userName.Length > 16)
+            {
+                errorMessage = "User name must be 16 characters or less.";
+                return false;
+            }
+        }
 
         config = new ConnectionConfig
         {
@@ -128,13 +160,6 @@ public class ConnectionUIController : MonoBehaviour
 
     private void SetStatus(string message)
     {
-        /*
-        if (statusText != null)
-        {
-            statusText.text = message;
-        }
-        */
-
         Debug.LogWarning(message);
     }
 }

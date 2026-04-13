@@ -85,14 +85,14 @@ public class ChatMessageView : MonoBehaviour, IPointerClickHandler
 
         if (leftSpacer != null)
         {
-            leftSpacer.ignoreLayout = isMine;
-            leftSpacer.flexibleWidth = isMine ? 0f : 1f;
+            leftSpacer.ignoreLayout = false;
+            leftSpacer.flexibleWidth = isMine ? 1f : 0f;
         }
 
         if (rightSpacer != null)
         {
-            rightSpacer.ignoreLayout = !isMine;
-            rightSpacer.flexibleWidth = isMine ? 1f : 0f;
+            rightSpacer.ignoreLayout = false;
+            rightSpacer.flexibleWidth = isMine ? 0f : 1f;
         }
 
         if (bubbleBackground != null)
@@ -119,6 +119,8 @@ public class ChatMessageView : MonoBehaviour, IPointerClickHandler
         {
             replyPreviewBackground.color = isMine ? myReplyBackgroundColor : otherReplyBackgroundColor;
         }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
     }
 
     private void RefreshReplyPreview()

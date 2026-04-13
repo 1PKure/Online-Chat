@@ -11,6 +11,8 @@ public class ChatNetworkManager : MonoBehaviour
 
     private string localUserId;
     private bool hasRaisedConnectedEvent;
+    private bool hasManualInitialization;
+    private ConnectionConfig currentConfig;
 
     public event Action<ChatMessageData> OnMessageReceived;
     public event Action<string> OnStatusChanged;
@@ -20,8 +22,8 @@ public class ChatNetworkManager : MonoBehaviour
     public bool IsConnected => clientTransport != null && clientTransport.IsRunning;
 
     public string LocalUserName =>
-        SessionData.Instance != null && SessionData.Instance.HasConfig()
-            ? SessionData.Instance.CurrentConfig.UserName
+        currentConfig != null && !string.IsNullOrWhiteSpace(currentConfig.UserName)
+            ? currentConfig.UserName
             : "Unknown";
 
     private void Awake()
@@ -38,33 +40,77 @@ public class ChatNetworkManager : MonoBehaviour
 
     private async void Start()
     {
-        await InitializeNetworkAsync();
-    }
-
-    private async Task InitializeNetworkAsync()
-    {
-        if (MessageRepository.Instance != null)
+        if (hasManualInitialization)
         {
-            MessageRepository.Instance.ClearMessages();
+            return;
         }
 
+        await InitializeNetworkFromSessionAsync();
+    }
+
+    public void StartWithConfig(ConnectionConfig config)
+    {
+        if (config == null)
+        {
+            SetStatus("Missing connection config.");
+            return;
+        }
+
+        hasManualInitialization = true;
+        _ = StartWithConfigAsync(config);
+    }
+
+    private async Task StartWithConfigAsync(ConnectionConfig config)
+    {
+        Shutdown();
+        await InitializeNetworkAsync(config);
+    }
+
+    private async Task InitializeNetworkFromSessionAsync()
+    {
         if (SessionData.Instance == null || !SessionData.Instance.HasConfig())
         {
             SetStatus("Missing session config.");
             return;
         }
 
-        ConnectionConfig config = SessionData.Instance.CurrentConfig;
+        await InitializeNetworkAsync(SessionData.Instance.CurrentConfig);
+    }
+
+    private async Task InitializeNetworkAsync(ConnectionConfig config)
+    {
+        if (config == null)
+        {
+            SetStatus("Missing connection config.");
+            return;
+        }
+
+        currentConfig = config;
         localUserId = Guid.NewGuid().ToString();
         hasRaisedConnectedEvent = false;
 
-        if (config.Mode == ConnectionMode.Host)
+        if (config.Mode != ConnectionMode.DedicatedServer && MessageRepository.Instance != null)
         {
-            await InitializeHostAsync(config);
+            MessageRepository.Instance.ClearMessages();
         }
-        else
+
+        switch (config.Mode)
         {
-            await InitializeClientAsync(config);
+            case ConnectionMode.Client:
+                await InitializeClientAsync(config);
+                break;
+
+            case ConnectionMode.Host:
+                await InitializeHostAsync(config);
+                break;
+
+            case ConnectionMode.DedicatedServer:
+                await InitializeDedicatedServerAsync(config);
+                break;
+
+            default:
+                SetStatus("Unsupported connection mode.");
+                break;
         }
     }
 
@@ -81,7 +127,11 @@ public class ChatNetworkManager : MonoBehaviour
         serverTransport.OnError += HandleServerTransportError;
         serverTransport.OnDisconnected += HandleServerTransportDisconnected;
 
-        serverTransport.StartAsServer(config.IPAddress, config.Port);
+        string listenAddress = string.IsNullOrWhiteSpace(config.IPAddress)
+            ? "0.0.0.0"
+            : config.IPAddress;
+
+        serverTransport.StartAsServer(listenAddress, config.Port);
 
         await Task.Delay(200);
 
@@ -95,10 +145,7 @@ public class ChatNetworkManager : MonoBehaviour
 
         BindClientTransportEvents(clientTransport);
 
-        string connectionAddress = string.IsNullOrWhiteSpace(config.IPAddress)
-            ? "127.0.0.1"
-            : config.IPAddress;
-
+        string connectionAddress = "127.0.0.1";
         clientTransport.StartAsClient(connectionAddress, config.Port);
     }
 
@@ -115,7 +162,36 @@ public class ChatNetworkManager : MonoBehaviour
         }
 
         BindClientTransportEvents(clientTransport);
-        clientTransport.StartAsClient(config.IPAddress, config.Port);
+
+        string connectionAddress = string.IsNullOrWhiteSpace(config.IPAddress)
+            ? "127.0.0.1"
+            : config.IPAddress;
+
+        clientTransport.StartAsClient(connectionAddress, config.Port);
+    }
+
+    private async Task InitializeDedicatedServerAsync(ConnectionConfig config)
+    {
+        await Task.Yield();
+
+        serverTransport = ChatTransportFactory.Create(config.TransportType);
+
+        if (serverTransport == null)
+        {
+            SetStatus("Failed to create dedicated server transport.");
+            return;
+        }
+
+        serverTransport.OnError += HandleServerTransportError;
+        serverTransport.OnDisconnected += HandleServerTransportDisconnected;
+
+        string listenAddress = string.IsNullOrWhiteSpace(config.IPAddress)
+            ? "0.0.0.0"
+            : config.IPAddress;
+
+        serverTransport.StartAsServer(listenAddress, config.Port);
+
+        SetStatus($"Dedicated server started on {listenAddress}:{config.Port} using {config.TransportType}.");
     }
 
     public void SendChatMessage(string text, string replyToMessageId = "")
@@ -143,8 +219,8 @@ public class ChatNetworkManager : MonoBehaviour
         ChatMessageData messageData = new ChatMessageData
         {
             MessageId = Guid.NewGuid().ToString(),
-            SenderClientId = SessionData.Instance.ClientId,
-            SenderName = SessionData.Instance.CurrentConfig.UserName,
+            SenderClientId = SessionData.Instance != null ? SessionData.Instance.ClientId : localUserId,
+            SenderName = LocalUserName,
             Text = text,
             ReplyToMessageId = replyToMessageId,
             Timestamp = DateTime.Now.ToString("HH:mm")

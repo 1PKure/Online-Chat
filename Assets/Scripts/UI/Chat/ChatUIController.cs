@@ -5,7 +5,6 @@ using UnityEngine.UI;
 public class ChatUIController : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private TMP_Text sessionInfoText;
     [SerializeField] private TMP_InputField messageInputField;
     [SerializeField] private Button sendButton;
     [SerializeField] private Transform messagesContainer;
@@ -37,13 +36,6 @@ public class ChatUIController : MonoBehaviour
         }
 
         ConnectionConfig config = SessionData.Instance.CurrentConfig;
-
-        if (sessionInfoText != null)
-        {
-            sessionInfoText.text =
-                $"Mode: {config.Mode} | Protocol: {config.TransportType} | " +
-                $"IP: {config.IPAddress} | Port: {config.Port} | User: {config.UserName}";
-        }
 
         if (sendButton != null)
         {
